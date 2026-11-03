@@ -1,17 +1,13 @@
-/* =========================================================
-   setup.js – first-time account setup (setup.html)
+async function initSetup() {
+  const session = getSession();
+  if (!session) {
+    window.location.replace("login.html");
+    return;
+  }
 
-   Landlord / Landlady → boarding house details → admin.html
-   Boarder             → join a boarding house  → user.html
-   ========================================================= */
-
-function initSetup() {
-  const session = requireSession();
-  if (!session) return;
-
-  const user = getUsers().find((u) => u.phone === session.phone);
+  const users = await getUsers();
+  const user = users.find((u) => u.phone === session.phone);
   if (!user) {
-    endSession();
     window.location.replace("login.html");
     return;
   }
@@ -25,6 +21,10 @@ function initSetup() {
   if (isAdmin) renderLandlordSetup(user);
   else renderBoarderSetup(user);
 }
+
+(async function() {
+  await initSetup();
+})();
 
 function markSetupDone() {
   const session = getSession();
