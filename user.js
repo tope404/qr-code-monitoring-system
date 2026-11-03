@@ -7,7 +7,7 @@ let USER = { tab: "overview", q: "", overviewTab: "recent" };
 let me = null;
 let logs = [];
 
-function initUser() {
+async function initUser() {
   const session = requireSession();
   if (!session) return;
   if (session.role === ROLE_ADMIN) {
@@ -15,21 +15,21 @@ function initUser() {
     return;
   }
 
-  me = ensureMyBoarder(session);
-  logs = getLogs();
+  me = await ensureMyBoarder(session);
+  logs = await getLogs();
 
-  const house = getHouseInfo();
+  const house = await getHouseInfo();
   if (house && house.name) $("#brand-name").textContent = house.name;
 
-  renderUser();
-  startClock(() => {
-    if (USER.tab === "overview") renderUser();
+  await renderUser();
+  startClock(async () => {
+    if (USER.tab === "overview") await renderUser();
   });
   document.addEventListener("modal-closed", stopScanner);
 }
 
-function ensureMyBoarder(session) {
-  const list = getBoarders();
+async function ensureMyBoarder(session) {
+  const list = await getBoarders();
   let mine = list.find((b) => b.phone === session.phone);
   if (!mine) {
     mine = {
@@ -41,13 +41,12 @@ function ensureMyBoarder(session) {
       last: "–",
     };
     list.push(mine);
-    saveBoarders(list);
+    await saveBoarders(list);
   }
   return mine;
 }
 
-/* ---------- Rendering ---------- */
-function renderUser() {
+async function renderUser() {
   const navBtn = (t) =>
     `<button class="nav-btn ${USER.tab === t[0] ? "on" : ""}" onclick="goUserTab('${t[0]}')"><i class="ms">${t[1]}</i><span>${t[2]}</span></button>`;
 
@@ -59,7 +58,7 @@ function renderUser() {
   const t = USER_TABS.find((x) => x[0] === USER.tab);
   $("#title").textContent = t[2];
   $("#sub").textContent = t[3];
-  $("#view").innerHTML = USER_VIEWS[USER.tab]();
+  $("#view").innerHTML = await USER_VIEWS[USER.tab]();
 }
 
 const USER_VIEWS = {
@@ -67,12 +66,11 @@ const USER_VIEWS = {
   settings: viewSettings,
 };
 
-/* Replace your viewOverview() function in user.js with this: */
-function viewOverview() {
+async function viewOverview() {
   const inside = me.status === "inside";
-  const cf = getCurfew();
+  const cf = await getCurfew();
   const curfew = isCurfew();
-  const house = getHouseInfo();
+  const house = await getHouseInfo();
   const mine = logs.filter((l) => l.name === me.name);
   const late = mine.filter((l) => l.late).length;
   const displayedLogs = USER.overviewTab === "recent" ? mine.slice(0, 5) : mine;
@@ -100,15 +98,14 @@ function viewOverview() {
     </section>`;
 }
 
-function setOverviewTab(tab) {
+async function setOverviewTab(tab) {
   USER.overviewTab = tab;
-  renderUser();
+  await renderUser();
 }
 
-/* ---------- Settings tab ---------- */
-function viewSettings() {
-  const cf = getCurfew();
-  const house = getHouseInfo();
+async function viewSettings() {
+  const cf = await getCurfew();
+  const house = await getHouseInfo();
   return `
     <section class="card">
       <h3>My profile</h3>
@@ -176,15 +173,14 @@ function submitNote(e, by) {
   gateToggle(by, `Going to: ${dest} | Return: ${ret}`);
 }
 
-/* ---------- Actions ---------- */
-function goUserTab(tab) {
+async function goUserTab(tab) {
   USER.tab = tab;
   USER.q = "";
-  renderUser();
+  await renderUser();
   window.scrollTo(0, 0);
 }
 
-function saveProfile(e) {
+async function saveProfile(e) {
   e.preventDefault();
   const name = $("#pf-name").value.trim();
   const room = $("#pf-room").value.trim();
@@ -192,39 +188,38 @@ function saveProfile(e) {
 
   me.name = name;
   me.room = room;
-  const list = getBoarders();
+  const list = await getBoarders();
   const idx = list.findIndex((b) => b.phone === me.phone);
   if (idx >= 0) list[idx] = me;
-  saveBoarders(list);
+  await saveBoarders(list);
 
-  const users = getUsers();
+  const users = await getUsers();
   const u = users.find((x) => x.phone === me.phone);
   if (u && u.name !== name) {
     u.name = name;
-    saveUsers(users);
+    await saveUsers(users);
     setSession(u);
   }
 
   toast("Profile saved");
-  renderUser();
+  await renderUser();
 }
 
-function gateToggle(by, note = "") {
+async function gateToggle(by, note = "") {
   const goingIn = me.status !== "inside";
   me.status = goingIn ? "inside" : "outside";
   me.last = nowTime();
 
-  const list = getBoarders();
+  const list = await getBoarders();
   const b = list.find((x) => x.phone === me.phone);
   if (b) {
     b.status = me.status;
     b.last = me.last;
   }
-  saveBoarders(list);
+  await saveBoarders(list);
 
-  logs = getLogs();
+  logs = await getLogs();
   
-  // If coming back inside, mark their last active Time Out log as completed
   if (goingIn) {
     const lastOut = logs.find((l) => l.name === me.name && l.type === "Time Out" && !l.completed);
     if (lastOut) {
@@ -240,9 +235,9 @@ function gateToggle(by, note = "") {
     late: goingIn && isCurfew(),
     note: note ? note : undefined
   });
-  saveLogs(logs);
+  await saveLogs(logs);
 
-  renderUser();
+  await renderUser();
   toast(goingIn ? "Welcome home — you are marked inside" : "Take care — you are marked outside");
 }
 
@@ -314,4 +309,6 @@ function stopScanner() {
   }
 }
 
-initUser();
+(async function() {
+  await initUser();
+})();
