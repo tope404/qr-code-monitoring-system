@@ -10,7 +10,7 @@ let boarders = [];
 let logs = [];
 let house = null;
 
-function initAdmin() {
+async function initAdmin() {
   const session = requireSession();
   if (!session) return;
   if (session.role !== ROLE_ADMIN) {
@@ -18,35 +18,33 @@ function initAdmin() {
     return;
   }
 
-  boarders = getBoarders();
-  logs = getLogs();
-  house = getHouseInfo();
+  boarders = await getBoarders();
+  logs = await getLogs();
+  house = await getHouseInfo();
 
   if (house && house.name) $("#brand-name").textContent = house.name;
 
-  renderAdmin();
-  startClock(() => {
-    if (ADMIN.tab === "dashboard") renderAdmin();
+  await renderAdmin();
+  startClock(async () => {
+    if (ADMIN.tab === "dashboard") await renderAdmin();
   });
 }
 
-function persist() {
-  saveBoarders(boarders);
-  saveLogs(logs);
+async function persist() {
+  await saveBoarders(boarders);
+  await saveLogs(logs);
 }
 
-
-function renderAdmin() {
+async function renderAdmin() {
   const navBtn = (t) =>
     `<button class="nav-btn ${ADMIN.tab === t[0] ? "on" : ""}" onclick="goTab('${t[0]}')"><i class="ms">${t[1]}</i><span>${t[2]}</span></button>`;
-
 
   $("#nav").innerHTML = ADMIN_TABS.map(navBtn).join("");
 
   const t = ADMIN_TABS.find((x) => x[0] === ADMIN.tab);
   $("#title").textContent = t[2];
   $("#sub").textContent = t[3];
-  $("#view").innerHTML = ADMIN_VIEWS[ADMIN.tab]();
+  $("#view").innerHTML = await ADMIN_VIEWS[ADMIN.tab]();
 }
 
 const ADMIN_VIEWS = {
@@ -56,11 +54,10 @@ const ADMIN_VIEWS = {
   settings: viewSettings,
 };
 
-
-function viewDashboard() {
+async function viewDashboard() {
   const inside = boarders.filter((b) => b.status === "inside");
   const outside = boarders.filter((b) => b.status !== "inside");
-  const cf = getCurfew();
+  const cf = await getCurfew();
   const curfew = isCurfew();
   const pct = boarders.length ? Math.round((inside.length / boarders.length) * 100) : 0;
   const late = logs.filter((l) => l.late).length;
@@ -107,7 +104,6 @@ function viewDashboard() {
     </section>`;
 }
 
-
 function filteredBoarders() {
   const q = ADMIN.q.toLowerCase();
   return boarders.filter((b) => b.name.toLowerCase().includes(q) || b.room.toLowerCase().includes(q));
@@ -131,7 +127,7 @@ function boarderCard(b) {
   </div>`;
 }
 
-function viewBoarders() {
+async function viewBoarders() {
   const rows = filteredBoarders();
   return `
     <div class="search-box">
@@ -143,13 +139,12 @@ function viewBoarders() {
     </div>`;
 }
 
-
 function filteredLogs() {
   const q = ADMIN.q.toLowerCase();
   return logs.filter((x) => (ADMIN.flt === "all" || x.type === ADMIN.flt) && x.name.toLowerCase().includes(q));
 }
 
-function viewLogs() {
+async function viewLogs() {
   const rows = filteredLogs();
   return `
     <div class="search-box">
@@ -166,9 +161,8 @@ function viewLogs() {
     </div>`;
 }
 
-
-function viewSettings() {
-  const cf = getCurfew();
+async function viewSettings() {
+  const cf = await getCurfew();
   const options = (v) =>
     Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${h === v ? "selected" : ""}>${hourLabel(h)}</option>`).join("");
 
@@ -200,12 +194,11 @@ function viewSettings() {
     <button class="btn btn-danger btn-block" onclick="logout()"><i class="ms">logout</i>Sign out</button>`;
 }
 
-
-function goTab(tab) {
+async function goTab(tab) {
   ADMIN.tab = tab;
   ADMIN.q = "";
   ADMIN.flt = "all";
-  renderAdmin();
+  await renderAdmin();
   window.scrollTo(0, 0);
 }
 
@@ -222,9 +215,9 @@ function onSearch(value) {
         '<div class="card empty">No boarders match your search.</div>';
 }
 
-function setLogFilter(value) {
+async function setLogFilter(value) {
   ADMIN.flt = value;
-  renderAdmin();
+  await renderAdmin();
 }
 
 function askRemove(id) {
@@ -237,19 +230,21 @@ function askRemove(id) {
     </div>`);
 }
 
-function removeBoarder(id) {
+async function removeBoarder(id) {
   const b = boarders.find((x) => x.id === id);
   boarders = boarders.filter((x) => x.id !== id);
-  saveBoarders(boarders);
+  await saveBoarders(boarders);
   closeModal();
-  renderAdmin();
+  await renderAdmin();
   toast(`${b.name} removed`);
 }
 
-function saveCurfewFromForm() {
-  saveCurfew({ s: Number($("#cf-start").value), e: Number($("#cf-end").value) });
+async function saveCurfewFromForm() {
+  await saveCurfew({ s: Number($("#cf-start").value), e: Number($("#cf-end").value) });
   toast("Curfew saved");
-  renderAdmin();
+  await renderAdmin();
 }
 
-initAdmin();
+(async function() {
+  await initAdmin();
+})();
