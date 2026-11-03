@@ -127,9 +127,21 @@ async function saveBoarderSetup(e) {
   const session = getSession();
   if (!session) return;
 
+  const enteredHouseName = val("bh-join");
+  
+  // Fetch current house info from Firestore to check against
+  const house = await getHouseInfo();
+
+  // Strict check: if no house exists, or the name doesn't match (case-insensitive)
+  if (!house || !house.name || house.name.trim().toLowerCase() !== enteredHouseName.trim().toLowerCase()) {
+    toast("Boarding house name not found in the database. Please ask your landlord for the exact name.", "error");
+    return; // Stop execution, prevent setup completion
+  }
+
   const boarders = await getBoarders();
   const room = val("b-room");
   const mine = boarders.find((b) => b.phone === session.phone);
+  
   if (mine) {
     mine.name = session.name;
     mine.room = room;
@@ -143,8 +155,9 @@ async function saveBoarderSetup(e) {
       last: "–",
     });
   }
+  
   await saveBoarders(boarders);
-  writeJSON(STORE_KEYS.selected, val("bh-join"));
+  writeJSON(STORE_KEYS.selected, enteredHouseName);
 
   await markSetupDone(session.phone);
   toast("You're all set!");
