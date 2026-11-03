@@ -18,12 +18,6 @@ async function initAdmin() {
     return;
   }
 
-  boarders = await getBoarders();
-  logs = await getLogs();
-  house = await getHouseInfo();
-
-  if (house && house.name) $("#brand-name").textContent = house.name;
-
   await renderAdmin();
   startClock(async () => {
     if (ADMIN.tab === "dashboard") await renderAdmin();
@@ -36,6 +30,12 @@ async function persist() {
 }
 
 async function renderAdmin() {
+  boarders = await getBoarders();
+  logs = await getLogs();
+  house = await getHouseInfo();
+
+  if (house && house.name) $("#brand-name").textContent = house.name;
+
   const navBtn = (t) =>
     `<button class="nav-btn ${ADMIN.tab === t[0] ? "on" : ""}" onclick="goTab('${t[0]}')"><i class="ms">${t[1]}</i><span>${t[2]}</span></button>`;
 
@@ -58,7 +58,7 @@ async function viewDashboard() {
   const inside = boarders.filter((b) => b.status === "inside");
   const outside = boarders.filter((b) => b.status !== "inside");
   const cf = await getCurfew();
-  const curfew = isCurfew();
+  const curfew = await isCurfew();
   const pct = boarders.length ? Math.round((inside.length / boarders.length) * 100) : 0;
   const late = logs.filter((l) => l.late).length;
 

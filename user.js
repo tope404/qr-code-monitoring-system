@@ -15,12 +15,6 @@ async function initUser() {
     return;
   }
 
-  me = await ensureMyBoarder(session);
-  logs = await getLogs();
-
-  const house = await getHouseInfo();
-  if (house && house.name) $("#brand-name").textContent = house.name;
-
   await renderUser();
   startClock(async () => {
     if (USER.tab === "overview") await renderUser();
@@ -47,6 +41,21 @@ async function ensureMyBoarder(session) {
 }
 
 async function renderUser() {
+  const session = requireSession();
+  if (!session) return;
+
+  me = await ensureMyBoarder(session);
+  logs = await getLogs();
+  const house = await getHouseInfo();
+
+  if (house && house.name) {
+    const brandEl = $("#brand-name");
+    if (brandEl) brandEl.textContent = house.name;
+  }
+
+  const viewEl = $("#view");
+  if (!viewEl) return;
+
   const navBtn = (t) =>
     `<button class="nav-btn ${USER.tab === t[0] ? "on" : ""}" onclick="goUserTab('${t[0]}')"><i class="ms">${t[1]}</i><span>${t[2]}</span></button>`;
 
@@ -58,7 +67,7 @@ async function renderUser() {
   const t = USER_TABS.find((x) => x[0] === USER.tab);
   $("#title").textContent = t[2];
   $("#sub").textContent = t[3];
-  $("#view").innerHTML = await USER_VIEWS[USER.tab]();
+  viewEl.innerHTML = await USER_VIEWS[USER.tab]();
 }
 
 const USER_VIEWS = {
@@ -69,7 +78,7 @@ const USER_VIEWS = {
 async function viewOverview() {
   const inside = me.status === "inside";
   const cf = await getCurfew();
-  const curfew = await isCurfew(); // <-- Add 'await' here
+  const curfew = await isCurfew();
   const house = await getHouseInfo();
   const mine = logs.filter((l) => l.name === me.name);
   const late = mine.filter((l) => l.late).length;
@@ -228,7 +237,7 @@ async function gateToggle(by, note = "") {
     }
   }
 
-  const curfewActive = await isCurfew(); // <-- Add 'await' here
+  const curfewActive = await isCurfew();
 
   logs.unshift({ 
     name: me.name, 
