@@ -9,6 +9,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+// Safety net: silently drop `undefined` fields instead of rejecting the whole write.
 db.settings({ ignoreUndefinedProperties: true });
 
 const STORE_KEYS = {
@@ -117,21 +118,90 @@ async function saveBoarders(list) {
   }
 }
 
+// saveBoarders only writes; removing someone needs an explicit delete.
+async function removeBoarderAccount(boarder) {
+  const batch = db.batch();
+  batch.delete(db.collection("boarders").doc(String(boarder.id)));
+  if (boarder.phone) batch.delete(db.collection("users").doc(boarder.phone));
+  await batch.commit();
+}
+
+// Used to sign out someone whose account was removed. On a network error we
+// assume the account still exists so nobody is logged out by a bad connection.
+async function userExists(phone) {
+  try {
+    const doc = await db.collection("users").doc(phone).get();
+    return doc.exists;
+  } catch (e) {
+    console.error("Error checking user:", e);
+    return true;
+  }
+}
+
+/* ---------- Logs: one document per scan in the "logs" collection ---------- */
+
+const stripUndefined = (obj) =>
+  Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+
+// Newest first. Each item carries its Firestore document id as `id`.
 async function getLogs() {
   try {
-    const doc = await db.collection("metadata").doc("logs_data").get();
-    return doc.exists ? (doc.data().items || []) : [];
+    const snapshot = await db.collection("logs").orderBy("createdAt", "desc").get();
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (e) {
+    console.error("Error getting logs:", e);
     return [];
   }
 }
 
-async function saveLogs(list) {
+// Atomically: add the scan log, update the boarder's status, and (on Time In)
+// mark the matching earlier Time Out as returned. Either all of it is saved or
+// none of it is, and errors are thrown so the caller can tell the user.
+async function recordScan({ boarder, entry, completeLogId }) {
+  const batch = db.batch();
+
+  batch.set(db.collection("logs").doc(), {
+    ...stripUndefined(entry),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  });
+  batch.set(db.collection("boarders").doc(String(boarder.id)), stripUndefined(boarder));
+  if (completeLogId) {
+    batch.update(db.collection("logs").doc(completeLogId), { completed: true });
+  }
+
+  await batch.commit();
+}
+
+// One-time copy of the old metadata/logs_data array into the logs collection.
+// Safe to call on every page load: it exits early once the flag document exists,
+// and uses fixed document ids so a repeated run cannot create duplicates.
+// The old document is left untouched as a backup.
+async function migrateLegacyLogs() {
   try {
-    await db.collection("metadata").doc("logs_data").set({ items: list });
+    const flagRef = db.collection("metadata").doc("logs_migration");
+    if ((await flagRef.get()).exists) return;
+
+    const legacy = await db.collection("metadata").doc("logs_data").get();
+    const items = legacy.exists ? legacy.data().items || [] : [];
+
+    const CHUNK = 400; // Firestore batches are limited to 500 writes
+    for (let i = 0; i < items.length; i += CHUNK) {
+      const batch = db.batch();
+      items.slice(i, i + CHUNK).forEach((item, j) => {
+        const idx = i + j;
+        // Old items had no timestamp and were stored newest-first, so give them
+        // tiny, ordered timestamps that always sort before any real scan.
+        batch.set(db.collection("logs").doc("legacy_" + String(idx).padStart(5, "0")), {
+          ...stripUndefined(item),
+          createdAt: firebase.firestore.Timestamp.fromMillis(items.length - idx),
+        });
+      });
+      await batch.commit();
+    }
+
+    await flagRef.set({ done: true, count: items.length });
   } catch (e) {
-    console.error("Error saving logs:", e);
-    throw e;
+    console.error("Error migrating legacy logs:", e);
   }
 }
 

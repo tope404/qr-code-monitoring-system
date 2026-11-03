@@ -18,15 +18,11 @@ async function initAdmin() {
     return;
   }
 
+  await migrateLegacyLogs();
   await renderAdmin();
   startClock(async () => {
     if (ADMIN.tab === "dashboard") await renderAdmin();
   });
-}
-
-async function persist() {
-  await saveBoarders(boarders);
-  await saveLogs(logs);
 }
 
 async function renderAdmin() {
@@ -243,11 +239,17 @@ function askRemove(id) {
 
 async function removeBoarder(id) {
   const b = boarders.find((x) => x.id === id);
-  boarders = boarders.filter((x) => x.id !== id);
-  await saveBoarders(boarders);
-  closeModal();
-  await renderAdmin();
-  toast(`${b.name} removed`);
+  if (!b) return closeModal();
+  try {
+    await removeBoarderAccount(b); // deletes the boarder record and their login
+    closeModal();
+    await renderAdmin();
+    toast(`${b.name} removed`);
+  } catch (e) {
+    console.error("Error removing boarder:", e);
+    closeModal();
+    toast("Failed to remove boarder. Please try again.", "error");
+  }
 }
 
 async function saveCurfewFromForm() {

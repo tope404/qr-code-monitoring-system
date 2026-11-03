@@ -7,6 +7,8 @@ let USER = { tab: "overview", q: "", overviewTab: "recent" };
 let me = null;
 let logs = [];
 
+const isMine = (l) => (l.phone ? l.phone === me.phone : l.name === me.name);
+
 async function initUser() {
   const session = requireSession();
   if (!session) return;
@@ -15,6 +17,14 @@ async function initUser() {
     return;
   }
 
+  // If the landlord removed this account, end the session instead of re-creating the boarder.
+  if (!(await userExists(session.phone))) {
+    endSession();
+    window.location.replace("login.html");
+    return;
+  }
+
+  await migrateLegacyLogs();
   await renderUser();
   startClock(async () => {
     if (USER.tab === "overview") await renderUser();
@@ -80,7 +90,7 @@ async function viewOverview() {
   const cf = await getCurfew();
   const curfew = await isCurfew();
   const house = await getHouseInfo();
-  const mine = logs.filter((l) => l.name === me.name);
+  const mine = logs.filter(isMine);
   const late = mine.filter((l) => l.late).length;
   const displayedLogs = USER.overviewTab === "recent" ? mine.slice(0, 5) : mine;
 
@@ -218,61 +228,40 @@ async function saveProfile(e) {
 async function gateToggle(by, note = "") {
   try {
     const list = await getBoarders();
-    let b = list.find((x) => x.phone === me.phone);
-    
-    // If boarder exists, use their actual database status. Otherwise default to "inside" so next scan is "Time Out"
-    const currentStatus = b ? b.status : (me.status || "inside");
-    
-    // If they are currently "inside", goingIn should be false (meaning they are checking OUT).
-    // If they are currently "outside" (or anything else), goingIn should be true (meaning they are checking IN).
-    const goingIn = currentStatus !== "inside";
-    
-    const newStatus = goingIn ? "inside" : "outside";
+    const current = list.find((x) => x.phone === me.phone) || me;
+
+    // Inside -> this scan is a Time Out. Anything else -> this scan is a Time In.
+    const goingIn = current.status !== "inside";
     const timeNow = nowTime();
-
-    // Update local reference
-    me.status = newStatus;
-    me.last = timeNow;
-
-    // Update or push to boarder list
-    if (b) {
-      b.status = newStatus;
-      b.last = timeNow;
-    } else {
-      list.push({
-        id: list.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1,
-        name: me.name,
-        room: me.room || "Unassigned",
-        phone: me.phone,
-        status: newStatus,
-        last: timeNow
-      });
-    }
-    await saveBoarders(list);
-
-    // Fetch and update logs
-    logs = await getLogs();
-    if (!Array.isArray(logs)) logs = [];
-
-    if (goingIn) {
-      const lastOut = logs.find((l) => l.name === me.name && String(l.type).toLowerCase() === "time out" && !l.completed);
-      if (lastOut) lastOut.completed = true;
-    }
-
     const curfewActive = await isCurfew();
 
-const newLog = { 
-  name: me.name, 
-  type: goingIn ? "Time In" : "Time Out", 
-  time: timeNow, 
-  by: by || "Gate QR", 
-  late: goingIn && curfewActive
-};
-if (note) newLog.note = note;
+    const updated = { ...current, status: goingIn ? "inside" : "outside", last: timeNow };
 
-    logs.unshift(newLog);
-    await saveLogs(logs);
+    const entry = {
+      name: me.name,
+      phone: me.phone,
+      type: goingIn ? "Time In" : "Time Out",
+      time: timeNow,
+      by: by || "Gate QR",
+      late: goingIn && curfewActive,
+    };
+    if (note) entry.note = note; // never store `note: undefined`
+    if (!goingIn) entry.completed = false;
 
+    // On Time In, find this person's latest open Time Out so it can be marked "Returned".
+    let completeLogId = null;
+    if (goingIn) {
+      logs = await getLogs();
+      const lastOut = logs.find(
+        (l) => isMine(l) && String(l.type).toLowerCase() === "time out" && !l.completed
+      );
+      if (lastOut) completeLogId = lastOut.id;
+    }
+
+    // Log + boarder status + "returned" flag are saved together, or not at all.
+    await recordScan({ boarder: updated, entry, completeLogId });
+
+    me = updated;
     await renderUser();
     toast(goingIn ? "Welcome home — marked Time In" : "Take care — marked Time Out");
   } catch (e) {
