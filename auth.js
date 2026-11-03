@@ -386,24 +386,44 @@ function renderAuth() {
   }
 }
 
-function handleRegister(e) {
+async function handleRegister(e) {
   e.preventDefault();
   const name = $("#reg-name").value.trim();
   const phone = $("#reg-phone").value.trim();
   const password = $("#reg-password").value;
 
-  const users = getUsers();
+  const users = await getUsers();
   if (users.some((u) => u.phone === phone)) {
     toast("That phone number is already registered", "error");
     return;
   }
 
   users.push({ name, phone, password, role: selectedRole, setupDone: false });
-  saveUsers(users);
+  await saveUsers(users);
 
   setSession({ name, phone, role: selectedRole });
   toast("Account registered! Let's set up your account.");
   setTimeout(() => (window.location.href = "setup.html"), 700);
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const phone = $("#login-phone").value.trim();
+  const password = $("#login-password").value;
+
+  const users = await getUsers();
+  const user = users.find((u) => u.phone === phone && u.password === password);
+  if (!user) {
+    toast("Invalid phone number or password", "error");
+    return;
+  }
+
+  setSession(user);
+  toast(`Welcome back, ${user.name}!`);
+
+  setTimeout(() => {
+    window.location.href = user.setupDone ? dashboardFor(user) : "setup.html";
+  }, 700);
 }
 
 function handleLogin(e) {
@@ -426,14 +446,15 @@ function handleLogin(e) {
 }
 
 
-(function initAuthPage() {
+(async function initAuthPage() {
   seedDemoData();
   applySavedTheme();
 
   if ($("#auth-content")) {
     const session = getSession();
     if (session) {
-      const user = getUsers().find((u) => u.phone === session.phone);
+      const users = await getUsers();
+      const user = users.find((u) => u.phone === session.phone);
       window.location.replace(user && user.setupDone ? dashboardFor(user) : "setup.html");
       return;
     }
