@@ -23,6 +23,8 @@ const STORE_KEYS = {
   theme: "qbh-theme",
 };
 
+const ROLE_ADMIN = "Landlord / Landlady";
+const ROLE_BOARDER = "Boarder";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
