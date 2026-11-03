@@ -141,7 +141,18 @@ async function viewBoarders() {
 
 function filteredLogs() {
   const q = ADMIN.q.toLowerCase();
-  return logs.filter((x) => (ADMIN.flt === "all" || x.type === ADMIN.flt) && x.name.toLowerCase().includes(q));
+  return logs.filter((x) => {
+    if (!x) return false;
+    
+    // Case-insensitive check for filter type (All, Time In, Time Out)
+    const matchesFlt = ADMIN.flt === "all" || 
+      String(x.type || "").toLowerCase() === String(ADMIN.flt || "").toLowerCase();
+    
+    // Safe search check ensuring name exists before calling toLowerCase
+    const matchesQ = !q || String(x.name || "").toLowerCase().includes(q);
+    
+    return matchesFlt && matchesQ;
+  });
 }
 
 async function viewLogs() {

@@ -257,14 +257,15 @@ function startClock(onCurfewChange) {
 }
 
 function logRow(x) {
-  const timeIn = x.type === "Time In";
-  const isDoneOut = x.type === "Time Out" && x.completed;
+  // Case-insensitive check so 'Time In', 'time in', or 'Time in' all match!
+  const timeIn = String(x.type).toLowerCase() === "time in";
+  const isDoneOut = String(x.type).toLowerCase() === "time out" && x.completed;
   
   return `<div class="list-item">
     <div class="avatar ${timeIn ? "ok" : (isDoneOut ? "" : "wn")}"><i class="ms">${timeIn ? "login" : "logout"}</i></div>
     <div class="grow">
       <div class="name">${esc(x.name)}</div>
-      <div class="mu sm">${esc(x.type)} by ${esc(x.by)}</div>
+      <div class="mu sm">${esc(x.type)} by ${esc(x.by || "Gate QR")}</div>
       ${x.note ? `<div class="mu xs" style="margin-top: 2px; color: ${isDoneOut ? 'var(--mu)' : 'var(--ac)'}; ${isDoneOut ? 'text-decoration: line-through;' : ''}">📝 ${esc(x.note)}</div>` : ""}
     </div>
     <div class="ta-r">

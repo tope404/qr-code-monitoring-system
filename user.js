@@ -216,22 +216,28 @@ async function saveProfile(e) {
 }
 
 async function gateToggle(by, note = "") {
+  // 1. Fetch latest boarder list and profile
+  const list = await getBoarders();
+  const b = list.find((x) => x.phone === me.phone);
+  if (b) me = b;
+
+  // 2. Explicitly toggle state
   const goingIn = me.status !== "inside";
   me.status = goingIn ? "inside" : "outside";
   me.last = nowTime();
 
-  const list = await getBoarders();
-  const b = list.find((x) => x.phone === me.phone);
   if (b) {
     b.status = me.status;
     b.last = me.last;
   }
   await saveBoarders(list);
 
+  // 3. Fetch latest logs list
   logs = await getLogs();
   
+  // If returning inside, resolve their pending Time Out note
   if (goingIn) {
-    const lastOut = logs.find((l) => l.name === me.name && l.type === "Time Out" && !l.completed);
+    const lastOut = logs.find((l) => l.name === me.name && String(l.type).toLowerCase() === "time out" && !l.completed);
     if (lastOut) {
       lastOut.completed = true;
     }
@@ -239,18 +245,21 @@ async function gateToggle(by, note = "") {
 
   const curfewActive = await isCurfew();
 
-  logs.unshift({ 
+  // 4. Construct log entry with standardized type strings
+  const newLog = { 
     name: me.name, 
     type: goingIn ? "Time In" : "Time Out", 
     time: me.last, 
-    by, 
+    by: by || "Gate QR", 
     late: goingIn && curfewActive,
     note: note ? note : undefined
-  });
+  };
+
+  logs.unshift(newLog);
   await saveLogs(logs);
 
   await renderUser();
-  toast(goingIn ? "Welcome home — you are marked inside" : "Take care — you are marked outside");
+  toast(goingIn ? "Welcome home — marked Time In" : "Take care — marked Time Out");
 }
 
 let scanStream = null;
