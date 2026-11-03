@@ -1,3 +1,7 @@
+/* =========================================================
+   setup.js – Fixed Firestore Async & Element ID Mismatches
+   ========================================================= */
+
 async function initSetup() {
   const session = getSession();
   if (!session) {
@@ -12,16 +16,19 @@ async function initSetup() {
     return;
   }
 
+  const house = await getHouseInfo();
+
   const isAdmin = user.role === ROLE_ADMIN;
   $("#setup-title").textContent = isAdmin ? "Boarding house setup" : "Join a boarding house";
   $("#setup-sub").textContent = isAdmin
     ? "Provide basic details about your property"
     : "Tell us which boarding house you are staying in";
 
-  if (isAdmin) renderLandlordSetup(user);
-  else renderBoarderSetup(user);
+  if (isAdmin) renderLandlordSetup(user, house);
+  else renderBoarderSetup(user, house);
 }
 
+// Initialize setup on page load
 (async function() {
   await initSetup();
 })();
@@ -37,8 +44,7 @@ async function markSetupDone(phone) {
 
 const val = (id) => document.getElementById(id).value.trim();
 
-function renderLandlordSetup(user) {
-  const house = getHouseInfo();
+function renderLandlordSetup(user, house) {
   $("#setup-content").innerHTML = `
     <form class="form" onsubmit="saveLandlordSetup(event)">
       <div class="field">
@@ -77,15 +83,15 @@ async function saveLandlordSetup(e) {
   const session = getSession();
   if (!session) return;
 
-  const houseName = $("#house-name").value.trim();
-  const landlordName = $("#landlord-name").value.trim();
-  const address = $("#house-address").value.trim();
-  const totalRooms = $("#total-rooms").value;
-  const occupiedRooms = $("#occupied-rooms").value;
-  const regBoarders = $("#reg-boarders").value;
+  const houseName = $("#bh-name")?.value.trim() || "";
+  const landlordName = $("#bh-owner")?.value.trim() || "";
+  const address = $("#bh-address")?.value.trim() || "";
+  const totalRooms = $("#bh-total-rooms")?.value || "";
+  const occupiedRooms = $("#bh-occupied-rooms")?.value || "";
+  const regBoarders = $("#bh-total-boarders")?.value || "";
 
-  // Save house info
-  await saveHouseInfo({ houseName, landlordName, address, totalRooms, occupiedRooms, regBoarders });
+  // Save house info to Firestore
+  await saveHouseInfo({ name: houseName, landlordName, address, totalRooms, occupiedRooms, totalBoarders: regBoarders });
 
   // Mark setup as done asynchronously
   await markSetupDone(session.phone);
@@ -96,9 +102,7 @@ async function saveLandlordSetup(e) {
   }, 700);
 }
 
-
-function renderBoarderSetup(user) {
-  const house = getHouseInfo();
+function renderBoarderSetup(user, house) {
   $("#setup-content").innerHTML = `
     <form class="form" onsubmit="saveBoarderSetup(event)">
       <div class="field">
@@ -118,12 +122,12 @@ function renderBoarderSetup(user) {
     <p class="auth-switch">Not you? <button type="button" class="link" onclick="logout()">Sign out</button></p>`;
 }
 
-function saveBoarderSetup(e) {
+async function saveBoarderSetup(e) {
   e.preventDefault();
   const session = getSession();
   if (!session) return;
 
-  const boarders = getBoarders();
+  const boarders = await getBoarders();
   const room = val("b-room");
   const mine = boarders.find((b) => b.phone === session.phone);
   if (mine) {
@@ -139,12 +143,10 @@ function saveBoarderSetup(e) {
       last: "–",
     });
   }
-  saveBoarders(boarders);
+  await saveBoarders(boarders);
   writeJSON(STORE_KEYS.selected, val("bh-join"));
 
-  markSetupDone();
+  await markSetupDone(session.phone);
   toast("You're all set!");
   setTimeout(() => (window.location.href = "user.html"), 700);
 }
-
-initSetup();
