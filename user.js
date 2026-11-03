@@ -216,50 +216,66 @@ async function saveProfile(e) {
 }
 
 async function gateToggle(by, note = "") {
-  // 1. Fetch latest boarder list and profile
-  const list = await getBoarders();
-  const b = list.find((x) => x.phone === me.phone);
-  if (b) me = b;
+  try {
+    // 1. Fetch latest boarder list and profile
+    const list = await getBoarders();
+    let b = list.find((x) => x.phone === me.phone);
+    if (b) {
+      me = b;
+    } else {
+      // Fallback if boarder record isn't in list yet
+      b = me;
+      list.push(b);
+    }
 
-  // 2. Explicitly toggle state
-  const goingIn = me.status !== "inside";
-  me.status = goingIn ? "inside" : "outside";
-  me.last = nowTime();
+    // 2. Explicitly determine direction (Time In if outside, Time Out if inside)
+    const goingIn = me.status !== "inside";
+    me.status = goingIn ? "inside" : "outside";
+    me.last = nowTime();
 
-  if (b) {
     b.status = me.status;
     b.last = me.last;
-  }
-  await saveBoarders(list);
+    await saveBoarders(list);
 
-  // 3. Fetch latest logs list
-  logs = await getLogs();
-  
-  // If returning inside, resolve their pending Time Out note
-  if (goingIn) {
-    const lastOut = logs.find((l) => l.name === me.name && String(l.type).toLowerCase() === "time out" && !l.completed);
-    if (lastOut) {
-      lastOut.completed = true;
+    // 3. Fetch latest logs list
+    logs = await getLogs();
+    if (!Array.isArray(logs)) logs = [];
+    
+    // If returning inside, resolve their pending Time Out note
+    if (goingIn) {
+      const lastOut = logs.find((l) => l.name === me.name && String(l.type).toLowerCase() === "time out" && !l.completed);
+      if (lastOut) {
+        lastOut.completed = true;
+      }
     }
+
+    // Safely check curfew with fallback
+    let curfewActive = false;
+    try {
+      curfewActive = await isCurfew();
+    } catch (err) {
+      console.error("Curfew check error:", err);
+    }
+
+    // 4. Construct log entry
+    const newLog = { 
+      name: me.name, 
+      type: goingIn ? "Time In" : "Time Out", 
+      time: me.last, 
+      by: by || "Gate QR", 
+      late: goingIn && curfewActive,
+      note: note ? note : undefined
+    };
+
+    logs.unshift(newLog);
+    await saveLogs(logs);
+
+    await renderUser();
+    toast(goingIn ? "Welcome home — marked Time In" : "Take care — marked Time Out");
+  } catch (e) {
+    console.error("Error in gateToggle:", e);
+    toast("Failed to record scan. Please try again.", "error");
   }
-
-  const curfewActive = await isCurfew();
-
-  // 4. Construct log entry with standardized type strings
-  const newLog = { 
-    name: me.name, 
-    type: goingIn ? "Time In" : "Time Out", 
-    time: me.last, 
-    by: by || "Gate QR", 
-    late: goingIn && curfewActive,
-    note: note ? note : undefined
-  };
-
-  logs.unshift(newLog);
-  await saveLogs(logs);
-
-  await renderUser();
-  toast(goingIn ? "Welcome home — marked Time In" : "Take care — marked Time Out");
 }
 
 let scanStream = null;
