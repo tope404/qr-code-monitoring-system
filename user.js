@@ -69,7 +69,7 @@ const USER_VIEWS = {
 async function viewOverview() {
   const inside = me.status === "inside";
   const cf = await getCurfew();
-  const curfew = isCurfew();
+  const curfew = await isCurfew(); // <-- Add 'await' here
   const house = await getHouseInfo();
   const mine = logs.filter((l) => l.name === me.name);
   const late = mine.filter((l) => l.late).length;
@@ -227,12 +227,14 @@ async function gateToggle(by, note = "") {
     }
   }
 
+  const curfewActive = await isCurfew(); // <-- Add 'await' here
+
   logs.unshift({ 
     name: me.name, 
     type: goingIn ? "Time In" : "Time Out", 
     time: me.last, 
     by, 
-    late: goingIn && isCurfew(),
+    late: goingIn && curfewActive,
     note: note ? note : undefined
   });
   await saveLogs(logs);
