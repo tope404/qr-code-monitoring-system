@@ -7,10 +7,8 @@ const firebaseConfig = {
   appId: "1:1051126335842:web:e569bdeac18a70464c443b"
 };
 
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-
 
 const STORE_KEYS = {
   users: "users",
@@ -57,7 +55,6 @@ const nowTime = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", 
 
 const hourLabel = (h) => `${h % 12 || 12}:00 ${h < 12 ? "AM" : "PM"}`;
 
-
 function seedDemoData() {
   if (!localStorage.getItem(STORE_KEYS.info)) {
     writeJSON(STORE_KEYS.info, {
@@ -70,7 +67,7 @@ function seedDemoData() {
     });
   }
   if (!localStorage.getItem(STORE_KEYS.curfew)) {
-    writeJSON(STORE_KEYS.curfew, { s: 20, e: 5 }); // 8:00 PM – 5:00 AM
+    writeJSON(STORE_KEYS.curfew, { s: 20, e: 5 });
   }
 }
 
@@ -86,7 +83,6 @@ async function getUsers() {
 
 async function saveUsers(users) {
   try {
-    // Save each user object in a document indexed by phone number
     const batch = db.batch();
     users.forEach(u => {
       const ref = db.collection("users").doc(u.phone);
@@ -122,8 +118,8 @@ async function saveBoarders(list) {
 
 async function getLogs() {
   try {
-    const snapshot = await db.collection("logs").orderBy("time", "desc").get();
-    return snapshot.docs.map(doc => doc.data());
+    const snapshot = await db.collection("metadata").doc("logs_data").get();
+    return snapshot.exists ? (snapshot.data().items || []) : [];
   } catch (e) {
     return [];
   }
@@ -131,7 +127,6 @@ async function getLogs() {
 
 async function saveLogs(list) {
   try {
-    // For logs, we can store them in a single document or individual docs
     await db.collection("metadata").doc("logs_data").set({ items: list });
   } catch (e) {
     console.error("Error saving logs:", e);
@@ -172,7 +167,6 @@ async function saveHouseInfo(info) {
   }
 }
 
-
 const getSession = () => readJSON(STORE_KEYS.session, null);
 const setSession = (user) => writeJSON(STORE_KEYS.session, { name: user.name, phone: user.phone, role: user.role });
 const endSession = () => localStorage.removeItem(STORE_KEYS.session);
@@ -193,12 +187,11 @@ function logout() {
   window.location.replace("login.html");
 }
 
-function isCurfew() {
-  const { s, e } = getCurfew();
+async function isCurfew() {
+  const { s, e } = await getCurfew();
   const h = new Date().getHours();
   return s > e ? h >= s || h < e : h >= s && h < e;
 }
-
 
 function toast(message, type = "success") {
   const wrap = $("#toast-container") || $("#toasts");
@@ -213,7 +206,6 @@ function toast(message, type = "success") {
     setTimeout(() => el.remove(), 300);
   }, 3000);
 }
-
 
 function applySavedTheme() {
   let saved = null;
@@ -236,13 +228,12 @@ function toggleTheme() {
   if (icon) icon.textContent = dark ? "light_mode" : "dark_mode";
 }
 
-
 let _lastCurfew = null;
 
 function startClock(onCurfewChange) {
-  const tick = () => {
+  const tick = async () => {
     const d = new Date();
-    const curfew = isCurfew();
+    const curfew = await isCurfew();
 
     const dateEl = $("#date");
     if (dateEl) dateEl.textContent = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
@@ -292,7 +283,6 @@ function closeModal() {
   $("#ov").innerHTML = "";
   document.dispatchEvent(new CustomEvent("modal-closed"));
 }
-
 
 let authState = "login";
 let selectedRole = "";
@@ -427,26 +417,6 @@ async function handleLogin(e) {
     window.location.href = user.setupDone ? dashboardFor(user) : "setup.html";
   }, 700);
 }
-
-function handleLogin(e) {
-  e.preventDefault();
-  const phone = $("#login-phone").value.trim();
-  const password = $("#login-password").value;
-
-  const user = getUsers().find((u) => u.phone === phone && u.password === password);
-  if (!user) {
-    toast("Invalid phone number or password", "error");
-    return;
-  }
-
-  setSession(user);
-  toast(`Welcome back, ${user.name}!`);
-
-  setTimeout(() => {
-    window.location.href = user.setupDone ? dashboardFor(user) : "setup.html";
-  }, 700);
-}
-
 
 (async function initAuthPage() {
   seedDemoData();
