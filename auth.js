@@ -9,6 +9,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+db.settings({ ignoreUndefinedProperties: true });
 
 const STORE_KEYS = {
   users: "users",
@@ -130,6 +131,7 @@ async function saveLogs(list) {
     await db.collection("metadata").doc("logs_data").set({ items: list });
   } catch (e) {
     console.error("Error saving logs:", e);
+    throw e;
   }
 }
 

@@ -261,14 +261,14 @@ async function gateToggle(by, note = "") {
 
     const curfewActive = await isCurfew();
 
-    const newLog = { 
-      name: me.name, 
-      type: goingIn ? "Time In" : "Time Out", 
-      time: timeNow, 
-      by: by || "Gate QR", 
-      late: goingIn && curfewActive,
-      note: note ? note : undefined
-    };
+const newLog = { 
+  name: me.name, 
+  type: goingIn ? "Time In" : "Time Out", 
+  time: timeNow, 
+  by: by || "Gate QR", 
+  late: goingIn && curfewActive
+};
+if (note) newLog.note = note;
 
     logs.unshift(newLog);
     await saveLogs(logs);
