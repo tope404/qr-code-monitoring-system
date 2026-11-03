@@ -26,20 +26,17 @@ async function initSetup() {
   await initSetup();
 })();
 
-function markSetupDone() {
-  const session = getSession();
-  if (!session) return;
-  const users = getUsers();
-  const user = users.find((u) => u.phone === session.phone);
+async function markSetupDone(phone) {
+  const users = await getUsers();
+  const user = users.find((u) => u.phone === phone);
   if (user) {
     user.setupDone = true;
-    saveUsers(users);
+    await saveUsers(users);
   }
 }
 
 const val = (id) => document.getElementById(id).value.trim();
 
-/* ---------- Landlord / landlady setup ---------- */
 function renderLandlordSetup(user) {
   const house = getHouseInfo();
   $("#setup-content").innerHTML = `
@@ -75,19 +72,28 @@ function renderLandlordSetup(user) {
     <p class="auth-switch">Not you? <button type="button" class="link" onclick="logout()">Sign out</button></p>`;
 }
 
-function saveLandlordSetup(e) {
+async function saveLandlordSetup(e) {
   e.preventDefault();
-  saveHouseInfo({
-    name: val("bh-name"),
-    owner: val("bh-owner"),
-    address: val("bh-address"),
-    totalRooms: Number(val("bh-total-rooms")),
-    occupiedRooms: Number(val("bh-occupied-rooms")),
-    totalBoarders: Number(val("bh-total-boarders")),
-  });
-  markSetupDone();
-  toast("Boarding house saved!");
-  setTimeout(() => (window.location.href = "admin.html"), 700);
+  const session = getSession();
+  if (!session) return;
+
+  const houseName = $("#house-name").value.trim();
+  const landlordName = $("#landlord-name").value.trim();
+  const address = $("#house-address").value.trim();
+  const totalRooms = $("#total-rooms").value;
+  const occupiedRooms = $("#occupied-rooms").value;
+  const regBoarders = $("#reg-boarders").value;
+
+  // Save house info
+  await saveHouseInfo({ houseName, landlordName, address, totalRooms, occupiedRooms, regBoarders });
+
+  // Mark setup as done asynchronously
+  await markSetupDone(session.phone);
+
+  toast("Setup completed successfully!");
+  setTimeout(() => {
+    window.location.href = "admin.html";
+  }, 700);
 }
 
 
