@@ -217,51 +217,54 @@ async function saveProfile(e) {
 
 async function gateToggle(by, note = "") {
   try {
-    // 1. Fetch latest boarder list and profile
     const list = await getBoarders();
     let b = list.find((x) => x.phone === me.phone);
+    
+    // If boarder exists, use their actual database status. Otherwise default to "inside" so next scan is "Time Out"
+    const currentStatus = b ? b.status : (me.status || "inside");
+    
+    // If they are currently "inside", goingIn should be false (meaning they are checking OUT).
+    // If they are currently "outside" (or anything else), goingIn should be true (meaning they are checking IN).
+    const goingIn = currentStatus !== "inside";
+    
+    const newStatus = goingIn ? "inside" : "outside";
+    const timeNow = nowTime();
+
+    // Update local reference
+    me.status = newStatus;
+    me.last = timeNow;
+
+    // Update or push to boarder list
     if (b) {
-      me = b;
+      b.status = newStatus;
+      b.last = timeNow;
     } else {
-      // Fallback if boarder record isn't in list yet
-      b = me;
-      list.push(b);
+      list.push({
+        id: list.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1,
+        name: me.name,
+        room: me.room || "Unassigned",
+        phone: me.phone,
+        status: newStatus,
+        last: timeNow
+      });
     }
-
-    // 2. Explicitly determine direction (Time In if outside, Time Out if inside)
-    const goingIn = me.status !== "inside";
-    me.status = goingIn ? "inside" : "outside";
-    me.last = nowTime();
-
-    b.status = me.status;
-    b.last = me.last;
     await saveBoarders(list);
 
-    // 3. Fetch latest logs list
+    // Fetch and update logs
     logs = await getLogs();
     if (!Array.isArray(logs)) logs = [];
-    
-    // If returning inside, resolve their pending Time Out note
+
     if (goingIn) {
       const lastOut = logs.find((l) => l.name === me.name && String(l.type).toLowerCase() === "time out" && !l.completed);
-      if (lastOut) {
-        lastOut.completed = true;
-      }
+      if (lastOut) lastOut.completed = true;
     }
 
-    // Safely check curfew with fallback
-    let curfewActive = false;
-    try {
-      curfewActive = await isCurfew();
-    } catch (err) {
-      console.error("Curfew check error:", err);
-    }
+    const curfewActive = await isCurfew();
 
-    // 4. Construct log entry
     const newLog = { 
       name: me.name, 
       type: goingIn ? "Time In" : "Time Out", 
-      time: me.last, 
+      time: timeNow, 
       by: by || "Gate QR", 
       late: goingIn && curfewActive,
       note: note ? note : undefined
