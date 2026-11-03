@@ -72,21 +72,103 @@ function seedDemoData() {
   }
 }
 
+async function getUsers() {
+  try {
+    const snapshot = await db.collection("users").get();
+    return snapshot.docs.map(doc => doc.data());
+  } catch (e) {
+    console.error("Error getting users:", e);
+    return [];
+  }
+}
 
-const getUsers = () => readJSON(STORE_KEYS.users, []);
-const saveUsers = (users) => writeJSON(STORE_KEYS.users, users);
+async function saveUsers(users) {
+  try {
+    // Save each user object in a document indexed by phone number
+    const batch = db.batch();
+    users.forEach(u => {
+      const ref = db.collection("users").doc(u.phone);
+      batch.set(ref, u);
+    });
+    await batch.commit();
+  } catch (e) {
+    console.error("Error saving users:", e);
+  }
+}
 
-const getBoarders = () => readJSON(STORE_KEYS.boarders, []);
-const saveBoarders = (list) => writeJSON(STORE_KEYS.boarders, list);
+async function getBoarders() {
+  try {
+    const snapshot = await db.collection("boarders").get();
+    return snapshot.docs.map(doc => doc.data());
+  } catch (e) {
+    return [];
+  }
+}
 
-const getLogs = () => readJSON(STORE_KEYS.logs, []);
-const saveLogs = (list) => writeJSON(STORE_KEYS.logs, list);
+async function saveBoarders(list) {
+  try {
+    const batch = db.batch();
+    list.forEach(b => {
+      const ref = db.collection("boarders").doc(String(b.id));
+      batch.set(ref, b);
+    });
+    await batch.commit();
+  } catch (e) {
+    console.error("Error saving boarders:", e);
+  }
+}
 
-const getCurfew = () => readJSON(STORE_KEYS.curfew, { s: 20, e: 5 });
-const saveCurfew = (cf) => writeJSON(STORE_KEYS.curfew, cf);
+async function getLogs() {
+  try {
+    const snapshot = await db.collection("logs").orderBy("time", "desc").get();
+    return snapshot.docs.map(doc => doc.data());
+  } catch (e) {
+    return [];
+  }
+}
 
-const getHouseInfo = () => readJSON(STORE_KEYS.info, null);
-const saveHouseInfo = (info) => writeJSON(STORE_KEYS.info, info);
+async function saveLogs(list) {
+  try {
+    // For logs, we can store them in a single document or individual docs
+    await db.collection("metadata").doc("logs_data").set({ items: list });
+  } catch (e) {
+    console.error("Error saving logs:", e);
+  }
+}
+
+async function getCurfew() {
+  try {
+    const doc = await db.collection("metadata").doc("curfew").get();
+    return doc.exists ? doc.data() : { s: 20, e: 5 };
+  } catch {
+    return { s: 20, e: 5 };
+  }
+}
+
+async function saveCurfew(cf) {
+  try {
+    await db.collection("metadata").doc("curfew").set(cf);
+  } catch (e) {
+    console.error("Error saving curfew:", e);
+  }
+}
+
+async function getHouseInfo() {
+  try {
+    const doc = await db.collection("metadata").doc("house_info").get();
+    return doc.exists ? doc.data() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveHouseInfo(info) {
+  try {
+    await db.collection("metadata").doc("house_info").set(info);
+  } catch (e) {
+    console.error("Error saving house info:", e);
+  }
+}
 
 
 const getSession = () => readJSON(STORE_KEYS.session, null);
