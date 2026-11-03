@@ -187,7 +187,7 @@ async function viewSettings() {
       <div class="kv">
         <div><div class="xs mu">Name</div><div class="name">${esc(house?.name || "—")}</div></div>
         <div><div class="xs mu">Address</div><div class="name">${esc(house?.address || "—")}</div></div>
-        <div><div class="xs mu">Owner</div><div class="name">${esc(house?.owner || "—")}</div></div>
+        <div><div class="xs mu">Owner</div><div class="name">${esc(house?.landlordName || house?.owner || "—")}</div></div>
         <div><div class="xs mu">Registered boarders</div><div class="name">${boarders.length}</div></div>
       </div>
     </section>

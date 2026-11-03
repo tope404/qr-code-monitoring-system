@@ -118,8 +118,8 @@ async function saveBoarders(list) {
 
 async function getLogs() {
   try {
-    const snapshot = await db.collection("metadata").doc("logs_data").get();
-    return snapshot.exists ? (snapshot.data().items || []) : [];
+    const doc = await db.collection("metadata").doc("logs_data").get();
+    return doc.exists ? (doc.data().items || []) : [];
   } catch (e) {
     return [];
   }
