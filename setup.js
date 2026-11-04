@@ -90,20 +90,28 @@ async function saveLandlordSetup(e) {
   const occupiedRooms = $("#bh-occupied-rooms")?.value || "";
   const regBoarders = $("#bh-total-boarders")?.value || "";
 
-  // Save house info to Firestore
+  // 1. Save house info to Firestore
   await saveHouseInfo({ name: houseName, landlordName, address, totalRooms, occupiedRooms, totalBoarders: regBoarders });
 
-  // RESET GLOBAL LOGS AND BOARDERS FOR THE NEW HOUSE
-  await saveLogs([]); // Clear previous scan history
+  // 2. Direct Firestore call to clear old logs safely
+  try {
+    await db.collection("metadata").doc("logs_data").set({ items: [] });
+  } catch (err) {
+    console.error("Error clearing logs:", err);
+  }
   
-  // Clear old boarders collection documents
-  const boardersRef = db.collection("boarders");
-  const snapshot = await boardersRef.get();
-  const batch = db.batch();
-  snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-  await batch.commit();
+  // 3. Clear old boarders collection documents
+  try {
+    const boardersRef = db.collection("boarders");
+    const snapshot = await boardersRef.get();
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  } catch (err) {
+    console.error("Error clearing boarders:", err);
+  }
 
-  // Mark setup as done asynchronously
+  // 4. Mark setup as done
   await markSetupDone(session.phone);
 
   toast("Setup completed successfully with a clean slate!");
