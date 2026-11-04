@@ -228,40 +228,57 @@ async function saveProfile(e) {
 async function gateToggle(by, note = "") {
   try {
     const list = await getBoarders();
-    const current = list.find((x) => x.phone === me.phone) || me;
-
-    // Inside -> this scan is a Time Out. Anything else -> this scan is a Time In.
-    const goingIn = current.status !== "inside";
+    let b = list.find((x) => x.phone === me.phone);
+    
+    const currentStatus = b ? b.status : me.status;
+    const goingIn = currentStatus === "outside" || !currentStatus || currentStatus !== "inside";
+    
+    const newStatus = goingIn ? "inside" : "outside";
     const timeNow = nowTime();
-    const curfewActive = await isCurfew();
 
-    const updated = { ...current, status: goingIn ? "inside" : "outside", last: timeNow };
+    me.status = newStatus;
+    me.last = timeNow;
 
-    const entry = {
-      name: me.name,
-      phone: me.phone,
-      type: goingIn ? "Time In" : "Time Out",
-      time: timeNow,
-      by: by || "Gate QR",
-      late: goingIn && curfewActive,
-    };
-    if (note) entry.note = note; // never store `note: undefined`
-    if (!goingIn) entry.completed = false;
+    if (b) {
+      b.status = newStatus;
+      b.last = timeNow;
+    } else {
+      list.push({
+        id: list.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1,
+        name: me.name,
+        room: me.room || "Unassigned",
+        phone: me.phone,
+        status: newStatus,
+        last: timeNow
+      });
+    }
+    await saveBoarders(list);
 
-    // On Time In, find this person's latest open Time Out so it can be marked "Returned".
-    let completeLogId = null;
+    logs = await getLogs();
+    if (!Array.isArray(logs)) logs = [];
+
     if (goingIn) {
-      logs = await getLogs();
-      const lastOut = logs.find(
-        (l) => isMine(l) && String(l.type).toLowerCase() === "time out" && !l.completed
-      );
-      if (lastOut) completeLogId = lastOut.id;
+      const lastOut = logs.find((l) => l.name === me.name && String(l.type).toLowerCase() === "time out" && !l.completed);
+      if (lastOut) lastOut.completed = true;
     }
 
-    // Log + boarder status + "returned" flag are saved together, or not at all.
-    await recordScan({ boarder: updated, entry, completeLogId });
+    const curfewActive = await isCurfew();
 
-    me = updated;
+    // --- ADD THE HOUSE INFO & TAGGING HERE ---
+    const house = await getHouseInfo();
+    const newLog = { 
+      houseName: house?.name || "Default House", // <-- Tags log with the active house name
+      name: me.name, 
+      type: goingIn ? "Time In" : "Time Out", 
+      time: timeNow, 
+      by: by || "Gate QR", 
+      late: goingIn && curfewActive,
+      note: note ? note : undefined
+    };
+
+    logs.unshift(newLog);
+    await saveLogs(logs);
+
     await renderUser();
     toast(goingIn ? "Welcome home — marked Time In" : "Take care — marked Time Out");
   } catch (e) {

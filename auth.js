@@ -143,13 +143,21 @@ async function userExists(phone) {
 const stripUndefined = (obj) =>
   Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
 
-// Newest first. Each item carries its Firestore document id as `id`.
 async function getLogs() {
   try {
-    const snapshot = await db.collection("logs").orderBy("createdAt", "desc").get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const doc = await db.collection("metadata").doc("logs_data").get();
+    const allLogs = doc.exists ? (doc.data().items || []) : [];
+    
+    const house = await getHouseInfo();
+    const currentHouseName = house?.name ? house.name.trim().toLowerCase() : "";
+
+    // Filter logs so only those belonging to the current boarding house show up
+    return allLogs.filter(log => {
+      // If legacy log doesn't have a houseName tag, allow it or filter it out based on preference
+      if (!log.houseName) return true; 
+      return log.houseName.trim().toLowerCase() === currentHouseName;
+    });
   } catch (e) {
-    console.error("Error getting logs:", e);
     return [];
   }
 }

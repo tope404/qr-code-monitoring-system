@@ -93,10 +93,20 @@ async function saveLandlordSetup(e) {
   // Save house info to Firestore
   await saveHouseInfo({ name: houseName, landlordName, address, totalRooms, occupiedRooms, totalBoarders: regBoarders });
 
+  // RESET GLOBAL LOGS AND BOARDERS FOR THE NEW HOUSE
+  await saveLogs([]); // Clear previous scan history
+  
+  // Clear old boarders collection documents
+  const boardersRef = db.collection("boarders");
+  const snapshot = await boardersRef.get();
+  const batch = db.batch();
+  snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+  await batch.commit();
+
   // Mark setup as done asynchronously
   await markSetupDone(session.phone);
 
-  toast("Setup completed successfully!");
+  toast("Setup completed successfully with a clean slate!");
   setTimeout(() => {
     window.location.href = "admin.html";
   }, 700);
