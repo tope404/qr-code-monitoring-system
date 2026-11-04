@@ -11,6 +11,14 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 // Safety net: silently drop `undefined` fields instead of rejecting the whole write.
 db.settings({ ignoreUndefinedProperties: true });
+db.enablePersistence({ synchronizeTabs: true })
+  .catch((err) => {
+    if (err.code == 'failed-precondition') {
+      console.warn('Persistence failed: Multiple browser tabs open.');
+    } else if (err.code == 'unimplemented') {
+      console.warn('Persistence is not supported by this browser.');
+    }
+  });
 
 const STORE_KEYS = {
   users: "users",
@@ -536,3 +544,11 @@ async function handleLogin(e) {
     renderAuth();
   }
 })();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('Service Worker registered successfully!'))
+      .catch((err) => console.error('Service Worker registration failed:', err));
+  });
+}

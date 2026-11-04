@@ -1,0 +1,16 @@
+{
+  "name": "QR-Code Monitoring System",
+  "short_name": "QR Monitor",
+  "description": "Boarding House QR Time-In/Time-Out Monitoring System",
+  "start_url": "/login.html",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "qrlogo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
