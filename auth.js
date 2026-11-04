@@ -162,6 +162,28 @@ async function getLogs() {
   }
 }
 
+async function saveLogs(list) {
+  try {
+    const house = await getHouseInfo();
+    const currentHouseName = house?.name ? house.name.trim().toLowerCase() : "";
+
+    // Fetch existing legacy/all logs from Firestore
+    const doc = await db.collection("metadata").doc("logs_data").get();
+    const allLogs = doc.exists ? (doc.data().items || []) : [];
+
+    // Filter out old logs for this specific house, then prepend the new list
+    const otherHouseLogs = allLogs.filter(log => {
+      const logHouse = log.houseName ? log.houseName.trim().toLowerCase() : "";
+      return logHouse !== currentHouseName;
+    });
+
+    const updatedLogs = [...list, ...otherHouseLogs];
+    await db.collection("metadata").doc("logs_data").set({ items: updatedLogs });
+  } catch (e) {
+    console.error("Error saving logs:", e);
+  }
+}
+
 // Atomically: add the scan log, update the boarder's status, and (on Time In)
 // mark the matching earlier Time Out as returned. Either all of it is saved or
 // none of it is, and errors are thrown so the caller can tell the user.

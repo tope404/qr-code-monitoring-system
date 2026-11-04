@@ -264,10 +264,9 @@ async function gateToggle(by, note = "") {
 
     const curfewActive = await isCurfew();
 
-    // --- ADD THE HOUSE INFO & TAGGING HERE ---
     const house = await getHouseInfo();
     const newLog = { 
-      houseName: house?.name || "Default House", // <-- Tags log with the active house name
+      houseName: house?.name || "Default House",
       name: me.name, 
       type: goingIn ? "Time In" : "Time Out", 
       time: timeNow, 
@@ -277,7 +276,7 @@ async function gateToggle(by, note = "") {
     };
 
     logs.unshift(newLog);
-    await saveLogs(logs);
+    await saveLogs(logs); // This will now successfully save!
 
     await renderUser();
     toast(goingIn ? "Welcome home — marked Time In" : "Take care — marked Time Out");
