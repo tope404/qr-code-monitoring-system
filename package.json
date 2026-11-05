@@ -1,0 +1,24 @@
+{
+  "name": "cct-2",
+  "version": "1.0.0",
+  "description": "**Boarders' In-and-Out QR Code Monitoring System**",
+  "main": "admin.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tope404/qr-code-monitoring-system.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tope404/qr-code-monitoring-system/issues"
+  },
+  "homepage": "https://github.com/tope404/qr-code-monitoring-system#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0"
+  }
+}
