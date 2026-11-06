@@ -15,7 +15,7 @@ Developed by **BSIT 2D - Group 5**.
 ## Key Features
 
 * **Dashboard Overview:** Real-time statistics including active boarder statuses, current curfew state, late entry counters, and recent scan logs.
-* **Integrated QR Scanner:** Point-and-scan interface using native camera feeds to log entries at the gate (`BH_GATE_CHECKPOINT`).
+* **Integrated QR Scanner:** Point-and-scan interface using native camera feeds to log entries at the QR code (`BH_GATE_CHECKPOINT`).
 * **Resident Management:** Search, view, assign, and manage boarder profiles isolated per boarding house.
 * **Curfew & Note Tracking:** Dynamic curfew rules with automated late-entry flags and checkout destination logs.
 * **Offline Persistence:** Local browser caching via IndexedDB ensuring continuous app function and scan logging without an active internet connection.
