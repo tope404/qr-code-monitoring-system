@@ -270,7 +270,7 @@ async function gateToggle(by, note = "") {
       name: me.name, 
       type: goingIn ? "Time In" : "Time Out", 
       time: timeNow, 
-      by: by || "Gate QR", 
+      by: by || "QR", 
       late: goingIn && curfewActive,
       note: note ? note : undefined
     };
