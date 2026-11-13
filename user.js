@@ -71,7 +71,7 @@ async function renderUser() {
 
   $("#nav").innerHTML =
     navBtn(USER_TABS[0]) +
-    `<button class="fab" onclick="openScanner()" title="Scan gate QR code" aria-label="Scan gate QR code"><i class="ms">photo_camera</i></button>` +
+    `<button class="fab" onclick="openScanner()" title="Scan QR code" aria-label="Scan QR code"><i class="ms">photo_camera</i></button>` +
     navBtn(USER_TABS[1]);
 
   const t = USER_TABS.find((x) => x[0] === USER.tab);
@@ -290,8 +290,8 @@ let scanStream = null;
 let scanTimer = null;
 
 function openScanner() {
-  openModal(`<h3>Scan gate QR code</h3>
-    <p class="mu sm">Point your camera at the gate QR code to log your time-in or time-out.</p>
+  openModal(`<h3>Scan QR code</h3>
+    <p class="mu sm">Point your camera at the QR code to log your time-in or time-out.</p>
     <div class="scan-frame"><video id="scan-video" class="scanner-video" playsinline muted></video></div>
     <div class="actions">
       <button class="btn btn-block" onclick="closeModal()"><i class="ms">close</i>Close</button>
@@ -332,7 +332,7 @@ function scanFrame() {
 
 function handleScannedBadge(data) {
   if (data !== "BH_GATE_CHECKPOINT") {
-    toast("Invalid gate QR code. Please scan the official gate code.", "error");
+    toast("Invalid QR code. Please scan the correct QR code.", "error");
     return;
   }
   closeModal();
