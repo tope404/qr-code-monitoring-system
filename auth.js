@@ -153,48 +153,50 @@ const stripUndefined = (obj) =>
 
 async function getLogs() {
   try {
-    const doc = await db.collection("metadata").doc("logs_data").get();
-    const allLogs = doc.exists ? (doc.data().items || []) : [];
-    
     const house = await getHouseInfo();
     const currentHouseName = house?.name ? house.name.trim().toLowerCase() : "";
 
-    // Filter logs so only those belonging to the current boarding house show up
+    // Fetch recent logs directly from the individual "logs" collection with a limit for speed
+    const snapshot = await db.collection("logs")
+      .orderBy("createdAt", "desc")
+      .limit(50) // Adjust limit as needed to keep page load lightning fast
+      .get();
+
+    const allLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (!currentHouseName) return allLogs;
+
+    // Filter by the current boarding house name
     return allLogs.filter(log => {
-      // If legacy log doesn't have a houseName tag, allow it or filter it out based on preference
       if (!log.houseName) return true; 
       return log.houseName.trim().toLowerCase() === currentHouseName;
     });
   } catch (e) {
+    console.error("Error getting logs:", e);
     return [];
   }
 }
 
 async function saveLogs(list) {
+
   try {
+    if (!Array.isArray(list) || list.length === 0) return;
+    
+
+    const latest = list[0];
     const house = await getHouseInfo();
-    const currentHouseName = house?.name ? house.name.trim().toLowerCase() : "";
-
-    // Fetch existing legacy/all logs from Firestore
-    const doc = await db.collection("metadata").doc("logs_data").get();
-    const allLogs = doc.exists ? (doc.data().items || []) : [];
-
-    // Filter out old logs for this specific house, then prepend the new list
-    const otherHouseLogs = allLogs.filter(log => {
-      const logHouse = log.houseName ? log.houseName.trim().toLowerCase() : "";
-      return logHouse !== currentHouseName;
+    
+    await db.collection("logs").add({
+      ...stripUndefined(latest),
+      houseName: latest.houseName || house?.name || "Default House",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
-
-    const updatedLogs = [...list, ...otherHouseLogs];
-    await db.collection("metadata").doc("logs_data").set({ items: updatedLogs });
   } catch (e) {
-    console.error("Error saving logs:", e);
+    console.error("Error saving log:", e);
   }
 }
 
-// Atomically: add the scan log, update the boarder's status, and (on Time In)
-// mark the matching earlier Time Out as returned. Either all of it is saved or
-// none of it is, and errors are thrown so the caller can tell the user.
+
 async function recordScan({ boarder, entry, completeLogId }) {
   const batch = db.batch();
 

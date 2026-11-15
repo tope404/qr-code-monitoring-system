@@ -54,9 +54,11 @@ async function renderUser() {
   const session = requireSession();
   if (!session) return;
 
-  me = await ensureMyBoarder(session);
-  logs = await getLogs();
-  const house = await getHouseInfo();
+  [me, logs, house] = await Promise.all([
+    ensureMyBoarder(session),
+    getLogs(),
+    getHouseInfo()
+  ]);
 
   if (house && house.name) {
     const brandEl = $("#brand-name");
@@ -87,9 +89,11 @@ const USER_VIEWS = {
 
 async function viewOverview() {
   const inside = me.status === "inside";
-  const cf = await getCurfew();
-  const curfew = await isCurfew();
-  const house = await getHouseInfo();
+  const [cf, curfew, house] = await Promise.all([
+    getCurfew(),
+    isCurfew(),
+    getHouseInfo()
+  ]);
   const mine = logs.filter(isMine);
   const late = mine.filter((l) => l.late).length;
   const displayedLogs = USER.overviewTab === "recent" ? mine.slice(0, 5) : mine;
@@ -123,8 +127,10 @@ async function setOverviewTab(tab) {
 }
 
 async function viewSettings() {
-  const cf = await getCurfew();
-  const house = await getHouseInfo();
+  const [cf, house] = await Promise.all([
+    getCurfew(),
+    getHouseInfo()
+  ]);
   return `
     <section class="card">
       <h3>My profile</h3>

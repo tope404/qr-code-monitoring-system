@@ -26,9 +26,11 @@ async function initAdmin() {
 }
 
 async function renderAdmin() {
-  boarders = await getBoarders();
-  logs = await getLogs();
-  house = await getHouseInfo();
+  [boarders, logs, house] = await Promise.all([
+  getBoarders(),
+  getLogs(),
+  getHouseInfo()
+]);
 
   if (house && house.name) $("#brand-name").textContent = house.name;
 
